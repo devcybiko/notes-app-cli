@@ -95,7 +95,7 @@ fi
 # $_NEWLINE
 #
 # Use ANSI-C quoted newline for string building.
-_NEWLINE=$'\n'
+_NEWLINE=$'<br>'
 
 ###############################################################################
 # .notes-apprc
@@ -1062,6 +1062,7 @@ _add() {
   local _name=
   local _properties=
   local _script=
+  local _bodyfile=
 
   while ((${#}))
   do
@@ -1083,6 +1084,26 @@ _add() {
         if __option_value_is_present "${_val:-}"
         then
           _body="${_val}"
+          shift
+        else
+          _help "add"
+          return 1
+        fi
+        ;;
+      --name)
+        if [[ -n "${_val:-}" ]]
+        then
+          _name="${_val}"
+          shift
+        else
+          _help "add"
+          return 1
+        fi
+        ;;
+      --bodyfile)
+        if __option_value_is_present "${_val:-}"
+        then
+          _bodyfile="${_val}"
           shift
         else
           _help "add"
@@ -1126,46 +1147,26 @@ _add() {
     _folder_name="$(_get_id_selector "${_folder_name}")"
   fi
 
-  if [[ -z "${_name}" ]]
+  if [[ -n "${_bodyfile}" ]]; then
+    input="${_bodyfile}"
+    while IFS= read -r _line; do
+      #echo "$_line"
+      _body+="${_line}"
+    done < "$input"
+  fi 
+
+  if [[ -n "${_name}" ]]
   then
     local _temp_file
     _temp_file="$(mktemp)"
+    #_temp_file="c.jnk"
 
-    if [[ -n "${_name}" ]]
-    then
-      printf "%s\\n" "${_name}" >> "${_temp_file}"
-    fi
+    printf "%s\n" "${_name}" > "${_temp_file}"
+    echo "${_body}" >> "${_temp_file}"
 
-    _edit_file "${_temp_file}"
-
-    _body=
-    _name=
-
-    while IFS= read -r __line
-    do
-      if [[ -z "${_name:-}" ]]
-      then
-        _name="${__line}"
-      else
-        _body+="${__line}${_NEWLINE}"
-      fi
-    done < "${_temp_file}"
-  fi
-
-  if [[ -z "${_body:-}" ]] && [[ -z "${_name:-}" ]]
-  then
-    return 1
-  elif [[ -n "${_body:-}" ]] && [[ -n "${_name:-}" ]]
-  then
     _properties="{name:\"${_name}\", body:\"${_body}\"}"
-  elif [[ -n "${_body:-}" ]]
-  then
-    _properties="{body:\"${_body}\"}"
-  elif [[ -n "${_name:-}" ]]
-  then
-    _properties="{name:\"${_name}\"}"
+    #_properties="{body:\"${_body}\"}"
   fi
-
   read -r -d '' _script <<HEREDOC || true
 tell application "Notes"
     tell account ${_account_name}
